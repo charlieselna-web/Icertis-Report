@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>A Perspective on Glean — Icertis</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f4f5f7;
+      --surface: #ffffff;
+      --text-primary: #1e1e2e;
+      --text-secondary: #5a5a72;
+      --text-tertiary: #8888a0;
+      --border: rgba(0,0,0,0.08);
+      --accent: #1a2fd4;
+      --accent-light: #eef0fd;
+      --accent-teal: #00c9b0;
+      --accent-teal-light: #e0faf7;
+      --hero-bg: #0d1240;
+      --hero-accent: #00c9b0;
+    }
+    html { scroll-behavior: smooth; font-size: 16px; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* HERO */
+    .hero {
+      background: var(--hero-bg);
+      padding: 64px 32px 72px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -100px; left: -100px;
+      width: 440px; height: 440px;
+      background: radial-gradient(circle, rgba(0,201,176,0.14) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -60px; right: -60px;
+      width: 320px; height: 320px;
+      background: radial-gradient(circle, rgba(26,47,212,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-inner {
+      max-width: 720px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 1;
+      animation: fadeUp 0.45s ease both;
+    }
+    .hero-label {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--hero-accent);
+      background: rgba(0,201,176,0.12);
+      border: 1px solid rgba(0,201,176,0.3);
+      padding: 5px 12px;
+      border-radius: 20px;
+      margin-bottom: 22px;
+    }
+    .hero h1 {
+      font-size: clamp(26px, 4.5vw, 38px);
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.18;
+      letter-spacing: -0.02em;
+      margin-bottom: 18px;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, #00c9b0 0%, #1a2fd4 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      font-size: 16px;
+      color: rgba(255,255,255,0.58);
+      line-height: 1.65;
+      max-width: 580px;
+      margin-bottom: 28px;
+    }
+    /* context note box inside hero */
+    .hero-note {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-left: 3px solid rgba(0,201,176,0.7);
+      border-radius: 10px;
+      padding: 16px 20px;
+      max-width: 580px;
+    }
+    .hero-note p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.65;
+    }
+    .hero-note strong { color: rgba(255,255,255,0.85); font-weight: 600; }
+
+    /* LOGO BAR */
+    .logo-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      margin-bottom: 32px;
+    }
+    .logo-bar img {
+      display: block;
+      object-fit: contain;
+    }
+    .logo-glean {
+      height: 28px;
+      width: auto;
+    }
+    .logo-icertis {
+      height: 28px;
+      width: auto;
+      filter: brightness(0) invert(1);
+      opacity: 0.88;
+    }
+    .logo-divider {
+      width: 1px;
+      height: 22px;
+      background: rgba(255,255,255,0.22);
+      flex-shrink: 0;
+      margin: 0 14px;
+    }
+
+    /* CONTENT */
+    .content { max-width: 800px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* SECTION */
+    .section { margin-top: 56px; animation: fadeUp 0.45s ease both; }
+    .section-label {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    .section-title {
+      font-size: 21px; font-weight: 700; color: var(--text-primary);
+      line-height: 1.25; letter-spacing: -0.01em; margin-bottom: 12px;
+    }
+    .section-body { font-size: 14.5px; color: var(--text-secondary); line-height: 1.7; }
+
+    /* PLATFORM CARDS */
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 13px; margin-top: 22px;
+    }
+    .platform-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 13px; padding: 22px 18px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 14px rgba(0,0,0,0.04);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+    .platform-card:hover { transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.08), 0 8px 22px rgba(0,0,0,0.06); }
+    .platform-card-icon {
+      width: 38px; height: 38px; background: var(--accent-light);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center; margin-bottom: 13px;
+    }
+    .platform-card-icon svg { width: 19px; height: 19px; }
+    .platform-card-title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+    .platform-card-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; }
+
+    /* STAT BAR */
+    .stat-bar { display: flex; flex-wrap: wrap; gap: 11px; margin-top: 22px; }
+    .stat-tile {
+      flex: 1 1 130px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 11px; padding: 16px 18px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); text-align: center;
+    }
+    .stat-value { font-size: 24px; font-weight: 700; color: var(--accent); line-height: 1; margin-bottom: 5px; }
+    .stat-label { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+
+    /* CONNECTOR STRIP */
+    .connector-strip { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+    .connector-pill {
+      font-size: 12px; font-weight: 500; color: var(--text-secondary);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 18px; padding: 4px 12px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .connector-pill.more { color: var(--accent); background: var(--accent-light); border-color: rgba(59,91,219,0.15); }
+
+    /* USE CASE CARDS */
+    .use-case-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 13px; margin-top: 22px;
+    }
+    .use-case-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 14px rgba(0,0,0,0.03);
+      transition: transform 0.16s ease, box-shadow 0.16s ease;
+    }
+    .use-case-card:hover { transform: translateY(-2px); box-shadow: 0 2px 8px rgba(0,0,0,0.07), 0 8px 22px rgba(0,0,0,0.06); }
+    .use-case-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .use-case-icon {
+      width: 32px; height: 32px; background: var(--accent-light);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .use-case-icon svg { width: 15px; height: 15px; }
+    .use-case-title { font-size: 13px; font-weight: 700; color: var(--text-primary); line-height: 1.3; }
+    .use-case-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 11px; }
+    .use-case-outcome {
+      font-size: 11.5px; font-weight: 600; color: var(--accent);
+      background: var(--accent-light); border-radius: 5px; padding: 4px 9px; display: inline-block;
+    }
+
+    /* PERSONA SPOTLIGHT */
+    .persona-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 28px 28px 24px;
+      margin-top: 22px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 6px 20px rgba(0,0,0,0.04);
+    }
+    .persona-header {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+      padding-bottom: 16px; border-bottom: 1px solid var(--border);
+    }
+    .persona-avatar {
+      width: 44px; height: 44px; background: var(--accent-light);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .persona-avatar svg { width: 22px; height: 22px; }
+    .persona-name { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+    .persona-role { font-size: 12.5px; color: var(--text-secondary); }
+    .persona-items { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .persona-items li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 13px; color: var(--text-secondary); line-height: 1.55;
+    }
+    .persona-arrow { color: var(--accent); font-weight: 700; flex-shrink: 0; margin-top: 1px; font-size: 12px; }
+
+    /* PILLARS */
+    .pillars { display: flex; flex-direction: column; gap: 9px; margin-top: 18px; }
+    .pillar {
+      display: flex; align-items: flex-start; gap: 13px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 15px 17px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+      transition: transform 0.16s ease;
+    }
+    .pillar:hover { transform: translateX(3px); }
+    .pillar-icon {
+      width: 30px; height: 30px; min-width: 30px;
+      background: var(--accent-light); border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pillar-icon svg { width: 14px; height: 14px; }
+    .pillar-title { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; }
+    .pillar-body { font-size: 12.5px; color: var(--text-secondary); line-height: 1.55; }
+
+    /* CUSTOMER STORY */
+    .story-card {
+      background: var(--hero-bg);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px; padding: 34px;
+      margin-top: 22px; position: relative; overflow: hidden;
+      box-shadow: 0 8px 36px rgba(0,0,0,0.14);
+    }
+    .story-card::before {
+      content: ''; position: absolute;
+      top: -50px; right: -50px; width: 220px; height: 220px;
+      background: radial-gradient(circle, rgba(0,201,176,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .story-badge {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+      color: var(--hero-accent); background: rgba(0,201,176,0.1);
+      border: 1px solid rgba(0,201,176,0.25); padding: 4px 10px;
+      border-radius: 14px; display: inline-block; margin-bottom: 18px;
+    }
+    .story-quote {
+      font-size: 17px; font-weight: 500; color: rgba(255,255,255,0.88);
+      line-height: 1.62; margin-bottom: 18px;
+      position: relative; padding-left: 18px;
+    }
+    .story-quote::before {
+      content: '\201C'; font-size: 52px; color: rgba(0,201,176,0.3);
+      position: absolute; top: -14px; left: -6px;
+      font-family: Georgia, serif; line-height: 1;
+    }
+    .story-attribution { font-size: 12.5px; color: rgba(255,255,255,0.42); margin-bottom: 22px; padding-left: 2px; }
+    .story-metrics { display: flex; flex-wrap: wrap; gap: 10px; position: relative; z-index: 1; }
+    .story-metric {
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 10px; padding: 13px 16px;
+    }
+    .story-metric-value { font-size: 21px; font-weight: 700; color: #ffffff; line-height: 1; margin-bottom: 4px; }
+    .story-metric-label { font-size: 11px; color: rgba(255,255,255,0.42); }
+
+    /* CTA */
+    .cta-section {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 15px; padding: 36px; text-align: center; margin-top: 56px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 8px 28px rgba(0,0,0,0.04);
+    }
+    .cta-title { font-size: 19px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; letter-spacing: -0.01em; }
+    .cta-body { font-size: 14px; color: var(--text-secondary); max-width: 480px; margin: 0 auto 22px; line-height: 1.65; }
+    .cta-chips { display: flex; flex-wrap: wrap; gap: 9px; justify-content: center; }
+    .cta-chip {
+      font-size: 12.5px; font-weight: 500; color: var(--accent);
+      background: var(--accent-light); border: 1px solid rgba(59,91,219,0.15);
+      border-radius: 18px; padding: 6px 14px;
+    }
+
+    /* FOOTER */
+    .footer {
+      text-align: center; padding: 22px 32px; font-size: 12px;
+      color: var(--text-tertiary); border-top: 1px solid var(--border);
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .section:nth-child(2) { animation-delay: 0.05s; }
+    .section:nth-child(3) { animation-delay: 0.10s; }
+    .section:nth-child(4) { animation-delay: 0.14s; }
+    .section:nth-child(5) { animation-delay: 0.18s; }
+    .section:nth-child(6) { animation-delay: 0.22s; }
+    .section:nth-child(7) { animation-delay: 0.26s; }
+
+    /* PRINT */
+    @media print {
+      @page { margin: 0; size: 8.5in 999in; }
+      body { margin: 0; padding: 0.4in 0.6in; background: #fff; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+      .content { max-width: 100% !important; }
+      .platform-card, .use-case-card, .pillar, .story-card, .cta-section, .persona-box, .stat-tile { box-shadow: none !important; border: 1px solid rgba(0,0,0,0.09); }
+      button, [role="button"] { display: none !important; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="logo-bar">
+      <!-- Glean inline SVG wordmark -->
+      <svg class="logo-glean" viewBox="0 0 46 22" fill="none" xmlns="http://www.w3.org/2000/svg" style="height:28px;width:auto;">
+        <text x="0" y="17" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="700" letter-spacing="-0.4" fill="#ffffff" opacity="0.96">glean</text>
+      </svg>
+      <div class="logo-divider"></div>
+      <img
+        src="https://scio-prod-be.glean.com/api/v1/downloadchatfile/ebd85048eb9b4ba98a9659ad15590f1a"
+        alt="Icertis"
+        class="logo-icertis"
+        onerror="this.style.display='none'"
+      />
+    </div>
+    <div class="hero-label">For Avisek Misra · Sr. Director, Product Management · Icertis</div>
+    <h1>A perspective on <span>Glean</span> — based on our conversations at Icertis</h1>
+    <p class="hero-sub">
+      We've had a chance to connect with Nitin, Nate, and Chinmay — and the conversations have surfaced a strong use case for the sales org. But the more we dug in, the more we think there's an equally compelling story for product teams like yours.
+    </p>
+    <div class="hero-note">
+      <p>
+        <strong>Sales is the obvious starting point</strong> — account transitions, RFP response, renewal prep. But as Icertis accelerates the <strong>Vera</strong> agentic roadmap and product repackaging, the product org faces its own version of the same problem: critical context scattered across tools, slowing down the work that actually matters.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<main class="content">
+
+  <!-- WHAT IS GLEAN -->
+  <section class="section">
+    <div class="section-label">What Glean is</div>
+    <h2 class="section-title">One platform for enterprise search, AI assistance, and agents</h2>
+    <p class="section-body">
+      Glean is a Work AI platform that indexes everything your company knows — across every tool and team — and makes it instantly accessible. Employees get a single place to find answers, create content, and automate workflows, all grounded in your actual company knowledge and permission controls.
+    </p>
+    <div class="platform-grid">
+      <div class="platform-card">
+        <div class="platform-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <div class="platform-card-title">Glean Search</div>
+        <div class="platform-card-body">Unified search across Confluence, Jira, Slack, Salesforce, Teams, GitHub, and 100+ tools — with permissions enforced automatically. Find anything, instantly, without switching tabs.</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="platform-card-title">Glean Assistant</div>
+        <div class="platform-card-body">An AI co-pilot grounded in your company's knowledge — not the open internet. Ask questions, get cited answers, draft documents, summarize meetings. Works in your existing tools.</div>
+      </div>
+      <div class="platform-card">
+        <div class="platform-card-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <div class="platform-card-title">Glean Agents</div>
+        <div class="platform-card-body">Pre-built and custom agents that automate multi-step workflows — RFP response, account research, release notes, competitive briefs. Built by anyone, run on a schedule or on-demand.</div>
+      </div>
+    </div>
+
+    <div class="stat-bar">
+      <div class="stat-tile">
+        <div class="stat-value">100+</div>
+        <div class="stat-label">Pre-built connectors</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">$200M+</div>
+        <div class="stat-label">ARR, doubled in 9 months</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">$7.2B</div>
+        <div class="stat-label">Valuation, Series F 2025</div>
+      </div>
+      <div class="stat-tile">
+        <div class="stat-value">Fortune 100</div>
+        <div class="stat-label">Customers across every sector</div>
+      </div>
+    </div>
+
+    <div class="connector-strip" style="margin-top:20px;">
+      <span class="connector-pill">Salesforce</span>
+      <span class="connector-pill">Highspot</span>
+      <span class="connector-pill">Teams</span>
+      <span class="connector-pill">SharePoint</span>
+      <span class="connector-pill">Microsoft 365</span>
+      <span class="connector-pill">Confluence</span>
+      <span class="connector-pill">Jira</span>
+      <span class="connector-pill">Slack</span>
+      <span class="connector-pill">GitHub</span>
+      <span class="connector-pill">Gong</span>
+      <span class="connector-pill">Zendesk</span>
+      <span class="connector-pill">ServiceNow</span>
+      <span class="connector-pill more">+ 90 more</span>
+    </div>
+  </section>
+
+  <!-- SALES USE CASES — the established conversation -->
+  <section class="section">
+    <div class="section-label">The sales use case</div>
+    <h2 class="section-title">Where the conversation started — and why it's strong</h2>
+    <p class="section-body">
+      The GTM org at Icertis faces a problem common to fast-growing enterprise SaaS companies: sellers spend too much time reconstructing context and not enough time with customers. Glean addresses this directly across three high-value workflows.
+    </p>
+    <div class="use-case-grid">
+      <div class="use-case-card">
+        <div class="use-case-header">
+          <div class="use-case-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="use-case-title">Customer / Account 360</div>
+        </div>
+        <div class="use-case-body">A single view of each account — combining Salesforce data, past emails, call notes, Highspot assets, and Teams conversations. Sellers walk into every call and every renewal fully briefed, without the manual prep sprint.</div>
+        <div class="use-case-outcome">Faster ramp on account transitions</div>
+      </div>
+      <div class="use-case-card">
+        <div class="use-case-header">
+          <div class="use-case-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div class="use-case-title">RFP Response Agent</div>
+        </div>
+        <div class="use-case-body">An agent that drafts RFP responses by pulling from past submissions, product docs, Highspot content, and internal knowledge — dramatically cutting response time and improving consistency across the SE and sales team.</div>
+        <div class="use-case-outcome">↑ Quality and speed on RFPs</div>
+      </div>
+      <div class="use-case-card">
+        <div class="use-case-header">
+          <div class="use-case-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div class="use-case-title">Renewal & Product Swap Guidance</div>
+        </div>
+        <div class="use-case-body">As the Vera product repackaging rolls out, sellers need real-time guidance on which products map to existing customer contracts. Glean can surface the right recommendation in-context — from Salesforce, Highspot, and product docs — without manual escalation.</div>
+        <div class="use-case-outcome">Confident conversations at renewal</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRODUCT USE CASE — for Avisek -->
+  <section class="section">
+    <div class="section-label">The product use case</div>
+    <h2 class="section-title">Why this matters for your team specifically</h2>
+    <p class="section-body">
+      Icertis is moving fast — agentic contracting, the Vera rebrand, deepening Microsoft and SAP integrations. Product teams leading that roadmap face a version of the same fragmentation problem sellers do: context is everywhere, but not in one place.
+    </p>
+
+    <!-- Persona callout for Avisek -->
+    <div class="persona-box">
+      <div class="persona-header">
+        <div class="persona-avatar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <div class="persona-name">Avisek Misra</div>
+          <div class="persona-role">Sr. Director, Product Management · Icertis</div>
+        </div>
+      </div>
+      <ul class="persona-items">
+        <li>
+          <span class="persona-arrow">→</span>
+          <span><strong>PRD and requirements work</strong> means digging through Confluence, past customer calls, and engineering threads before writing a single line. Glean surfaces all of that — across every system — in one query, so the first draft starts from signal, not memory.</span>
+        </li>
+        <li>
+          <span class="persona-arrow">→</span>
+          <span><strong>Competitive and market context</strong> for the Vera repackaging and agentic roadmap decisions lives across analyst reports, internal decks, and Gong calls. Glean synthesizes it instantly rather than requiring a research sprint before every strategic decision.</span>
+        </li>
+        <li>
+          <span class="persona-arrow">→</span>
+          <span><strong>Coordinating across Microsoft, SAP, and engineering</strong> means everyone is often working from different docs. Glean gives every stakeholder the same ground truth — reducing the back-and-forth on "which version is right."</span>
+        </li>
+        <li>
+          <span class="persona-arrow">→</span>
+          <span><strong>Release notes and launch briefs</strong> are time-consuming but important. Glean agents can auto-generate them from Jira and Confluence activity — freeing up your team for higher-leverage work.</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- WHAT MAKES GLEAN DIFFERENT -->
+  <section class="section">
+    <div class="section-label">Why Glean</div>
+    <h2 class="section-title">What makes it different from other AI tools</h2>
+    <div class="pillars">
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div>
+          <div class="pillar-title">Permission-aware by design</div>
+          <div class="pillar-body">Glean mirrors access controls from every connected system automatically. Sensitive contract data and internal roadmaps are only surfaced to the right people — no extra governance configuration required.</div>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        </div>
+        <div>
+          <div class="pillar-title">Enterprise Knowledge Graph — not just retrieval</div>
+          <div class="pillar-body">Glean understands relationships between people, projects, documents, and tools across your org. Answers are contextual and company-specific — not generic LLM outputs disconnected from your actual environment.</div>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <div>
+          <div class="pillar-title">Native Microsoft ecosystem fit</div>
+          <div class="pillar-body">Glean connects natively to Teams, SharePoint, M365, and GitHub — the same stack Icertis is built on. Connectors are maintained out-of-the-box, with no heavy custom integration work required to keep them current.</div>
+        </div>
+      </div>
+      <div class="pillar">
+        <div class="pillar-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#1a2fd4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </div>
+        <div>
+          <div class="pillar-title">Model Hub — no lock-in</div>
+          <div class="pillar-body">GPT, Claude, Gemini, Llama — teams choose the model that fits the task. Consistent with Icertis' own OmniModel strategy: the right model for the right job, with enterprise-grade security across all of them.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CUSTOMER STORY -->
+  <section class="section">
+    <div class="section-label">Customer story</div>
+    <h2 class="section-title">What this looks like at a comparable B2B SaaS company</h2>
+    <p class="section-body">
+      Confluent — a data streaming platform with enterprise customers globally — deployed Glean to give product, engineering, and support teams instant access to knowledge across 20+ tools.
+    </p>
+    <div class="story-card">
+      <div class="story-badge">Confluent · Enterprise B2B SaaS</div>
+      <div class="story-quote">
+        Looking back on the hundreds of technology projects we've led internally, Glean was high impact and low effort.
+      </div>
+      <div class="story-attribution">— Shahan Parshad, VP of Business Technology & Data, Confluent</div>
+      <div class="story-metrics">
+        <div class="story-metric">
+          <div class="story-metric-value">56%</div>
+          <div class="story-metric-label">Daily active stickiness</div>
+        </div>
+        <div class="story-metric">
+          <div class="story-metric-value">3,200+</div>
+          <div class="story-metric-label">Employees on Glean</div>
+        </div>
+        <div class="story-metric">
+          <div class="story-metric-value">5–10 min</div>
+          <div class="story-metric-label">Faster per support ticket</div>
+        </div>
+        <div class="story-metric">
+          <div class="story-metric-value">20+ tools</div>
+          <div class="story-metric-label">Indexed in weeks, not months</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <div class="cta-title">Happy to dig into any of this further</div>
+    <div class="cta-body">
+      Whether the product use case resonates, the sales story is more relevant right now, or you just want to see it in action — happy to set up time to walk through it.
+    </div>
+    <div class="cta-chips">
+      <span class="cta-chip">Platform walkthrough</span>
+      <span class="cta-chip">Sales / Account 360 demo</span>
+      <span class="cta-chip">Product team use cases</span>
+      <span class="cta-chip">RFP agent deep dive</span>
+      <span class="cta-chip">Microsoft stack integration</span>
+    </div>
+  </div>
+
+</main>
+
+<footer class="footer">
+  <p>Prepared by Glean · <a href="https://www.glean.com" style="color: #1a2fd4; text-decoration: none;">glean.com</a> · All customer metrics from public case studies</p>
+</footer>
+
+<script>
+  window.GleanBridge?.postMessage({
+    actionId: 'export-pdf',
+    type: 'glean-add-menu',
+    metadata: { label: 'Export as PDF', icon: 'export' }
+  });
+  window.GleanBridge?.onMessage('action', function(data) {
+    if (data.actionId === 'export-pdf') window.print();
+  });
+</script>
+</body>
+</html>
